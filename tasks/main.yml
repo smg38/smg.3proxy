@@ -1,0 +1,185 @@
+- name: Create system group
+  ansible.builtin.group:
+    name: 3proxy
+    gid: '{{ prx_group_id }}'
+    state: present
+  become: true
+
+- name: Create system user
+  ansible.builtin.user:
+    name: 3proxy
+    group: 3proxy
+    uid: '{{ prx_user_id }}'
+    system: true
+    create_home: false
+    shell: /sbin/nologin
+    state: present
+  become: true
+
+- name: Create a log directory if it does not exist
+  ansible.builtin.file:
+    path: /var/log/3proxy
+    state: directory
+    owner: 3proxy
+    group: 3proxy
+    mode: '0755'
+  become: true
+
+- name: Alpine. Install 3proxy
+  community.general.apk:
+    name: 3proxy
+    state: latest
+    repository: http://dl-3.alpinelinux.org/alpine/edge/testing
+    update_cache: true
+  become: true
+  when: ansible_distribution == "Alpine"
+
+- name: Alpine. Install openssl
+  community.general.apk:
+    name: 
+      - openssl
+    state: latest
+    #repository: http://dl-3.alpinelinux.org/alpine/edge/main
+    update_cache: true
+  become: true
+  when: ansible_distribution == "Alpine"
+
+- name: Alpine. Install ufw
+  community.general.apk:
+    name:
+      - iptables
+      - ip6tables
+      - ufw
+    state: latest
+    repository:
+      - http://dl-3.alpinelinux.org/alpine/edge/main
+      - http://dl-3.alpinelinux.org/alpine/edge/community
+    update_cache: true
+  become: true
+  when: 
+    - prx_use_ufw
+    - ansible_distribution == "Alpine"
+
+- name: Packages upgrade
+  ansible.builtin.apt:
+    #name: build-essential
+    upgrade: yes
+    cache_valid_time: 86400
+    #state: latest
+    update_cache: yes
+  become: true
+  when: ansible_distribution != "Alpine"
+
+- name: Install build-essential
+  ansible.builtin.apt:
+    name: build-essential
+    #upgrade: yes
+    #cache_valid_time: 86400
+    #state: latest
+    #update_cache: yes
+  become: true
+  when: ansible_distribution != "Alpine"
+
+- name: Download sources
+  ansible.builtin.get_url:
+    url: 'https://github.com/3proxy/3proxy/archive/refs/tags/{{ prx_version }}.tar.gz'
+    dest: /tmp/{{ prx_version }}.tar.gz
+    mode: '644'
+  delegate_to: localhost
+  run_once: true
+  when: ansible_distribution != "Alpine"
+  
+- name: Unarchive sources
+  ansible.builtin.unarchive:
+    src: /tmp/{{ prx_version }}.tar.gz
+    dest: /tmp/
+    mode: '644'
+  when:  ansible_distribution != "Alpine"
+    
+- name: Compile sources
+  community.general.make:
+    chdir: /tmp/3proxy-{{ prx_version }}
+    file: Makefile.Linux
+  when: ansible_distribution != "Alpine"
+
+- name: Create work dir
+  ansible.builtin.file:
+    path: /etc/3proxy
+    state: directory
+    owner: 3proxy
+    group: 3proxy
+    mode: '600'
+  become: true
+  when: ansible_distribution != "Alpine"
+
+- name: Copy binaries
+  ansible.builtin.copy:
+    src: /tmp/3proxy-{{ prx_version }}/bin/3proxy
+    dest: /usr/bin/3proxy
+    owner: root
+    group: root
+    mode: '744'
+    remote_src: true
+  become: true
+  when: ansible_distribution != "Alpine"
+  notify: '3proxy : restart service'
+
+- name: Generate encrypted password
+  ansible.builtin.command:
+    cmd: 'openssl passwd -1 {{ client.password }}'
+  loop: '{{ prx_user }}'
+  loop_control:
+    loop_var: client
+    label: '{{ client.name }}'
+  register: encrypted_passwords
+  when:
+    - prx_user is defined
+    - prx_user is iterable
+
+- name: Fill and copy config
+  ansible.builtin.template:
+    src: 3proxy-cfg.j2
+    dest: /etc/3proxy/3proxy.cfg
+    owner: 3proxy
+    group: 3proxy
+    mode: '600'
+  become: true
+  notify: '3proxy : restart service'
+
+- name: Copy systemd unit file
+  ansible.builtin.copy:
+    src: 3proxy.service
+    dest: /etc/systemd/system/3proxy.service
+    owner: 3proxy
+    group: 3proxy
+    mode: '644'
+  become: true
+  notify: '3proxy : restart service'
+  when: ansible_distribution != "Alpine"
+
+- name: Alpine. Setup 3proxy
+  ansible.builtin.command:
+    cmd: rc-update add 3proxy boot default
+  when: ansible_distribution == "Alpine"
+
+# - name: Alpine. Start service 3proxy
+#   ansible.builtin.command:
+#     cmd: service 3proxy restart
+#   when: ansible_distribution == "Alpine"  
+
+- name: Add rules of Uncomplicated Firewall
+  community.general.ufw:
+    rule: allow
+    port: '{{ port }}'
+    protocol: tcp
+    state: enabled
+  loop:
+    - '{{ prx_http_port }}'
+    - '{{ prx_socks_port }}'
+    - '{{ ansible_port | default(22) }}'
+  loop_control:
+    loop_var: port
+    label: '{{ port }}/tcp'
+  when: prx_use_ufw
+  become: true
+  notify: '3proxy : reload firewall'

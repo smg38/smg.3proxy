@@ -1,0 +1,6 @@
+playbook.yml
+inventory.ini
+ansible.cfg
+ansible.log
+vars
+*.DS_Store

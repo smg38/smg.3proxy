@@ -1,0 +1,22 @@
+- name: Reload Uncomplicated Firewall service
+  community.general.ufw:
+    state: reloaded
+  become: true
+  listen: '3proxy : reload firewall'
+
+- name: Restart service
+  ansible.builtin.systemd:
+    service: 3proxy
+    state: restarted
+    enabled: true
+    daemon_reload: true
+  become: true
+  listen: '3proxy : restart service'
+  when: ansible_distribution != "Alpine" 
+
+- name: Alpine. Restart service
+  ansible.builtin.command:
+    cmd: service 3proxy restart
+  become: true
+  listen: '3proxy : restart service'
+  when: ansible_distribution == "Alpine" 

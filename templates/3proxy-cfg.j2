@@ -1,0 +1,50 @@
+setgid {{ prx_group_id }}
+setuid {{ prx_user_id }}
+{% for server in prx_dns -%}
+nserver {{ server }}
+{% endfor %}
+nscache 65536
+timeouts 1 5 30 60 180 1800 15 60
+daemon
+
+#---Log
+#% if ansible_distribution != "Alpine" %
+log /var/log/3proxy/3proxy.log D
+logformat "L%C - %U [%d/%o/%Y:%H:%M:%S %z] ""%T"" %E %I %O %N/%R:%r"
+rotate 10
+#% endif %
+
+#---Clients
+{% if prx_user is defined and prx_user is iterable and prx_user %}
+{% for client in prx_user %}
+users "{{ client.name }}:CR:{{ encrypted_passwords.results[loop.index0].stdout }}"
+{% endfor %}
+auth cache strong
+{% else %}
+auth none
+{% endif %}
+
+#---Ports
+{% if prx_http_port is defined %}
+proxy -n -p{{ prx_http_port }} -a
+{% endif %}
+{% if prx_socks_port is defined %}
+socks -n -p{{ prx_socks_port }}
+{% endif %}
+{% if prx_ftp_port is defined and ansible_distribution != "Alpine" %}
+ftppr -n -p{{ prx_ftp_port }}
+{% endif %}
+{% if prx_pop3_port is defined and ansible_distribution != "Alpine" %}
+pop3p -n -p{{ prx_pop3_port }}
+{% endif %}
+
+{% if prx_admin_port is defined and ansible_distribution != "Alpine" %}
+#---Admin
+flush
+auth strong 
+#iponly
+users admin:CL:pass
+allow admin * * 80 * 1-5 00:00:00-20:00:00
+#allow * 192.168.2.* * 80 * 1-5 00:00:00-20:00:00
+admin -p{{ prx_admin_port }}
+{% endif %}

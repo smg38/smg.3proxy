@@ -1,0 +1,35 @@
+# 3Proxy server version
+prx_version: 0.9.4
+
+# Port of HTTP proxy
+prx_http_port: 3128
+
+# Port of SOCKS proxy
+prx_socks_port: 1080
+
+# Port of FTP server
+#prx_ftp_port: 21
+
+# Port of POP3
+#prx_pop3_port: 110
+
+# Port of admin WEB server
+#prx_admin_port: 80
+
+# System user ID and Group ID
+prx_group_id: 2000
+prx_user_id: 2001
+
+# List of DNS servers
+prx_dns:
+  - 1.1.1.1
+  - 8.8.8.8
+
+# true if you want use the Uncomplicated Firewall
+# if false you may need to use other firewall
+prx_use_ufw: false
+
+# Users of proxy server (accept all connections if empty or undefined)
+prx_user:
+  - name: user
+  - password: user
