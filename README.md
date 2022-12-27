@@ -69,8 +69,8 @@ em { color:#5e5edb }
 <th></th>
 <tr class="odd">
 <th>prx_dns:<p>
-- <em>1.1.1.1</em><br>
-- <em>8.8.8.8</em</th>
+  - <em>1.1.1.1</em><br>
+  - <em>8.8.8.8</em</th>
 <th>List of DNS servers</th>
 <th></th>
 <tr class="even">
@@ -78,8 +78,8 @@ em { color:#5e5edb }
 <th>If you need to use uncomplicated firewall set to "true"</th>
 <th>Don't work with Alpine</th>
 <tfoot> <th>prx_user:<p>
-- name: <em >user</em><br>
-- password: <em >user</em></th>
+  - name: <em >user</em><br>
+  - password: <em >user</em></th>
 <th>Users of proxy server (accept all connections if empty or undefined)</th>
 <th></th>
 </tfoot>
